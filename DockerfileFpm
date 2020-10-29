@@ -4,9 +4,9 @@ RUN mkdir -p code
 
 COPY ./config/php-fpm/php.ini /usr/local/etc/php/php.ini
 
-COPY ./var/www/laravel_tutorial ../laravel_tutorial
+COPY ./var/www/laravel-tutorial ../laravel-tutorial
 
-WORKDIR ../laravel_tutorial
+WORKDIR ../laravel-tutorial
 RUN chmod -R a+wx ./
 
 
