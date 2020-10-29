@@ -1,0 +1,38 @@
+version: 0.2
+
+env:
+  variables:
+    DOCKER_BUILDKIT: "1"
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+  pre_build:
+    commands:
+      - pip install awscli --upgrade --user
+      - DEFAULT=`pwd`
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - echo $CODEBUILD_RESOLVED_SOURCE_VERSION
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+  build:
+    commands:
+      - echo $CODEBUILD_SOURCE_VERSION > REVISION
+      - docker build --build-arg APP_KEY=$APP_KEY --build-arg APP_ENV=$APP_ENV -t $REPOSITORY_URI_APP:latest  -f DockerfileFpm . 
+      - docker tag $REPOSITORY_URI_APP:latest $REPOSITORY_URI_APP:$IMAGE_TAG
+      - docker build -t $REPOSITORY_URI_NGINX:latest -f DockerfileNginx .
+      - docker tag $REPOSITORY_URI_NGINX:latest $REPOSITORY_URI_NGINX:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - docker push $REPOSITORY_URI_APP:latest
+      - docker push $REPOSITORY_URI_APP:$IMAGE_TAG
+      - docker push $REPOSITORY_URI_NGINX:latest
+      - docker push $REPOSITORY_URI_NGINX:$IMAGE_TAG
+      - cd $DEFAULT
+      - printf '[{"name":"server","imageUri":"%s"},{"name":"nginx","imageUri":"%s"}]' $REPOSITORY_URI_APP:$IMAGE_TAG $REPOSITORY_URI_NGINX:$IMAGE_TAG > imagedefinitions.json
+      - aws --region ap-northeast-1 ecs run-task --launch-type FARGATE --cluster $CLUSTER --task-definition $TASK --network-configuration "awsvpcConfiguration={subnets=[$SUBNET],securityGroups=[$SG],assignPublicIp=DISABLED}" > run-task.log
+      - TASK_ARN=$(jq -r '.tasks[0].taskArn' run-task.log)
+      - aws ecs wait tasks-stopped --cluster arn:aws:ecs:ap-northeast-1:$ACCOUNT:cluster/$CLUSTER --tasks $TASK_ARN
+artifacts:
+  files: imagedefinitions.json

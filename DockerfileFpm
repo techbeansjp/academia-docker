@@ -1,0 +1,26 @@
+FROM php:7.3.5-fpm-alpine
+
+RUN mkdir -p code
+
+COPY ./config/php-fpm/php.ini /usr/local/etc/php/php.ini
+
+COPY ./var/www/laravel_tutorial ../laravel_tutorial
+
+WORKDIR ../laravel_tutorial
+RUN chmod -R a+wx ./
+
+
+RUN set -x && \
+  apk update && \
+  apk add --no-cache libxml2 libxml2-dev curl curl-dev autoconf $PHPIZE_DEPS && \
+  apk add zlib-dev mariadb-client libzip-dev && \
+  apk add freetype-dev libjpeg-turbo-dev libpng-dev tree && \
+  docker-php-ext-install opcache mysqli pdo pdo_mysql xml mbstring curl session tokenizer json && \
+  curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
+
+RUN composer install
+RUN cp .env.example .env
+RUN php artisan key:generate
+#RUN chmod -R a+wx storage/ bootstrap/cache
+
+expose 9000

@@ -1,0 +1,6 @@
+FROM nginx:1.17.9-alpine
+
+COPY ./config/nginx/prd-nginx.conf /etc/nginx/nginx.conf
+COPY ./config/nginx/prd-conf.d etc/nginx/conf.d
+
+expose 80
